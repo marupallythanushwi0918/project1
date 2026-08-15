@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>{{ food.name }} - FoodieRate</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<nav>
+
+    <div class="logo">
+        🍴 FoodieRate
+    </div>
+
+    <a href="{{ url_for('home') }}">
+        ← Back
+    </a>
+
+</nav>
+
+
+<div class="food-detail">
+
+    <div class="big-food">
+        🍴
+    </div>
+
+    <h1>{{ food.name }}</h1>
+
+    <p class="category">
+        {{ food.category }}
+    </p>
+
+    <h3>₹{{ food.price }}</h3>
+
+    <p>{{ food.description }}</p>
+
+
+    <hr>
+
+
+    <h2>⭐ Write a Review</h2>
+
+    <form action="{{ url_for('add_review', food_id=food.id) }}"
+          method="POST">
+
+        <label>Rating</label>
+
+        <select name="rating" required>
+
+            <option value="5">⭐⭐⭐⭐⭐</option>
+            <option value="4">⭐⭐⭐⭐</option>
+            <option value="3">⭐⭐⭐</option>
+            <option value="2">⭐⭐</option>
+            <option value="1">⭐</option>
+
+        </select>
+
+
+        <textarea
+            name="review_text"
+            placeholder="Write your review..."
+            required></textarea>
+
+
+        <button type="submit">
+            Submit Review
+        </button>
+
+    </form>
+
+
+    <hr>
+
+
+    <h2>Reviews</h2>
+
+
+    {% if reviews %}
+
+        {% for review in reviews %}
+
+        <div class="review">
+
+            <strong>
+                👤 {{ review.username }}
+            </strong>
+
+            <p>
+                {% for i in range(review.rating) %}
+                    ⭐
+                {% endfor %}
+            </p>
+
+            <p>
+                {{ review.review_text }}
+            </p>
+
+        </div>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>
+            No reviews yet. Be the first to review!
+        </p>
+
+    {% endif %}
+
+</div>
+
+</body>
+</html>
