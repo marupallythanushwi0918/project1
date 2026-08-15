@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>FoodieRate</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<nav>
+
+    <div class="logo">
+        🍴 FoodieRate
+    </div>
+
+    <div class="nav-links">
+        <span>Hello, {{ username }}!</span>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+
+</nav>
+
+
+<section class="hero">
+
+    <h1>Discover. Taste. Review. ⭐</h1>
+
+    <p>
+        Find your favorite food and see what others think.
+    </p>
+
+</section>
+
+
+<section class="container">
+
+    <h2>Popular Food</h2>
+
+    <div class="food-grid">
+
+        {% for food in foods %}
+
+        <div class="food-card">
+
+            <div class="food-image">
+                🍴
+            </div>
+
+            <h3>{{ food.name }}</h3>
+
+            <p class="category">
+                {{ food.category }}
+            </p>
+
+            <p>
+                ₹{{ food.price }}
+            </p>
+
+            <p class="description">
+                {{ food.description }}
+            </p>
+
+            <a class="review-btn"
+               href="{{ url_for('food_details', food_id=food.id) }}">
+                View Reviews
+            </a>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</section>
+
+</body>
+</html>
