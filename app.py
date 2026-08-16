@@ -4,29 +4,72 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY")
 
-db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password=os.getenv("DB_PASSWORD"),
-    database="login_db"
-)
+# Secret key for Flask sessions
+app.secret_key = os.getenv("SECRET_KEY", "development-secret-key")
+
+
+# ============================================================
+# DATABASE CONNECTION
+# ============================================================
+
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
+DB_USER = os.getenv("DB_USER", "root")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME = os.getenv("DB_NAME", "login_db")
+
+
+db_config = {
+    "host": DB_HOST,
+    "port": DB_PORT,
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME,
+}
+
+
+# TiDB Cloud uses a secure TLS connection.
+# Local MySQL continues to use the normal localhost connection.
+if DB_HOST != "localhost" and DB_HOST != "127.0.0.1":
+
+    db_config.update({
+        "ssl_ca": os.getenv(
+            "SSL_CA",
+            "/etc/ssl/certs/ca-certificates.crt"
+        ),
+        "ssl_verify_cert": True,
+        "ssl_verify_identity": True,
+        "use_pure": True
+    })
+
+
+db = mysql.connector.connect(**db_config)
 
 cursor = db.cursor(dictionary=True)
 
 
-# ---------------- LOGIN ----------------
+# ============================================================
+# LOGIN
+# ============================================================
 
 @app.route("/")
 def login():
     return render_template("login.html")
 
 
+# ============================================================
+# REGISTER PAGE
+# ============================================================
+
 @app.route("/register")
 def register():
     return render_template("register.html")
 
+
+# ============================================================
+# REGISTER USER
+# ============================================================
 
 @app.route("/register_user", methods=["POST"])
 def register_user():
@@ -68,6 +111,10 @@ def register_user():
     return redirect(url_for("login"))
 
 
+# ============================================================
+# LOGIN USER
+# ============================================================
+
 @app.route("/login_user", methods=["POST"])
 def login_user():
 
@@ -81,7 +128,10 @@ def login_user():
 
     user = cursor.fetchone()
 
-    if user and check_password_hash(user["password"], password):
+    if user and check_password_hash(
+        user["password"],
+        password
+    ):
 
         session["user_id"] = user["id"]
         session["username"] = user["username"]
@@ -94,7 +144,9 @@ def login_user():
     )
 
 
-# ---------------- HOME ----------------
+# ============================================================
+# HOME
+# ============================================================
 
 @app.route("/home")
 def home():
@@ -112,7 +164,9 @@ def home():
     )
 
 
-# ---------------- FOOD DETAILS ----------------
+# ============================================================
+# FOOD DETAILS
+# ============================================================
 
 @app.route("/food/<int:food_id>")
 def food_details(food_id):
@@ -147,7 +201,9 @@ def food_details(food_id):
     )
 
 
-# ---------------- ADD REVIEW ----------------
+# ============================================================
+# ADD REVIEW
+# ============================================================
 
 @app.route("/add_review/<int:food_id>", methods=["POST"])
 def add_review(food_id):
@@ -179,7 +235,9 @@ def add_review(food_id):
     )
 
 
-# ---------------- LOGOUT ----------------
+# ============================================================
+# LOGOUT
+# ============================================================
 
 @app.route("/logout")
 def logout():
@@ -189,7 +247,9 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ---------------- RUN ----------------
+# ============================================================
+# RUN LOCALLY
+# ============================================================
 
 if __name__ == "__main__":
     app.run(debug=True)
