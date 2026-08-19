@@ -1,13 +1,28 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
+from flasgger import Swagger
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# Secret key for Flask sessions
-app.secret_key = os.getenv("SECRET_KEY", "development-secret-key")
+# ============================================================
+# FLASK CONFIGURATION
+# ============================================================
 
+app.secret_key = os.getenv(
+    "SECRET_KEY",
+    "development-secret-key"
+)
+
+# ============================================================
+# SWAGGER CONFIGURATION
+# ============================================================
+
+swagger = Swagger(app)
 
 # ============================================================
 # DATABASE CONNECTION
@@ -19,7 +34,6 @@ DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "login_db")
 
-
 db_config = {
     "host": DB_HOST,
     "port": DB_PORT,
@@ -28,9 +42,7 @@ db_config = {
     "database": DB_NAME,
 }
 
-
-# TiDB Cloud uses a secure TLS connection.
-# Local MySQL continues to use the normal localhost connection.
+# TiDB Cloud TLS configuration
 if DB_HOST != "localhost" and DB_HOST != "127.0.0.1":
 
     db_config.update({
@@ -42,7 +54,6 @@ if DB_HOST != "localhost" and DB_HOST != "127.0.0.1":
         "ssl_verify_identity": True,
         "use_pure": True
     })
-
 
 db = mysql.connector.connect(**db_config)
 
@@ -248,7 +259,379 @@ def logout():
 
 
 # ============================================================
-# RUN LOCALLY
+# ============================================================
+#              SWAGGER CRUD API - FOODS
+# ============================================================
+# ============================================================
+
+
+# ============================================================
+# CREATE FOOD - POST
+# ============================================================
+
+@app.route("/api/foods", methods=["POST"])
+def create_food():
+    """
+    Create a new food
+    ---
+    tags:
+      - Foods CRUD
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              example: Pizza
+            category:
+              type: string
+              example: Fast Food
+            price:
+              type: number
+              example: 200
+            description:
+              type: string
+              example: Cheesy vegetable pizza
+    responses:
+      201:
+        description: Food created successfully
+      400:
+        description: Invalid request
+    """
+
+    try:
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "error": "JSON body is required"
+            }), 400
+
+        if "name" not in data:
+            return jsonify({
+                "error": "Food name is required"
+            }), 400
+
+        name = data["name"]
+        category = data.get("category")
+        price = data.get("price")
+        description = data.get("description")
+
+        cursor.execute(
+            """
+            INSERT INTO foods
+            (name, category, price, description)
+            VALUES(%s, %s, %s, %s)
+            """,
+            (
+                name,
+                category,
+                price,
+                description
+            )
+        )
+
+        db.commit()
+
+        return jsonify({
+            "message": "Food created successfully",
+            "id": cursor.lastrowid
+        }), 201
+
+    except Exception as e:
+
+        db.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ============================================================
+# READ ALL FOODS - GET
+# ============================================================
+
+@app.route("/api/foods", methods=["GET"])
+def get_foods():
+    """
+    Get all foods
+    ---
+    tags:
+      - Foods CRUD
+    responses:
+      200:
+        description: List of all foods
+    """
+
+    try:
+
+        cursor.execute(
+            "SELECT * FROM foods"
+        )
+
+        foods = cursor.fetchall()
+
+        return jsonify(foods), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ============================================================
+# READ ONE FOOD - GET
+# ============================================================
+
+@app.route("/api/foods/<int:food_id>", methods=["GET"])
+def get_food(food_id):
+    """
+    Get a food by ID
+    ---
+    tags:
+      - Foods CRUD
+    parameters:
+      - name: food_id
+        in: path
+        required: true
+        type: integer
+        example: 1
+    responses:
+      200:
+        description: Food found
+      404:
+        description: Food not found
+    """
+
+    try:
+
+        cursor.execute(
+            "SELECT * FROM foods WHERE id=%s",
+            (food_id,)
+        )
+
+        food = cursor.fetchone()
+
+        if not food:
+
+            return jsonify({
+                "error": "Food not found"
+            }), 404
+
+        return jsonify(food), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ============================================================
+# UPDATE FOOD - PUT
+# ============================================================
+
+@app.route("/api/foods/<int:food_id>", methods=["PUT"])
+def update_food(food_id):
+    """
+    Update a food
+    ---
+    tags:
+      - Foods CRUD
+    consumes:
+      - application/json
+    parameters:
+      - name: food_id
+        in: path
+        required: true
+        type: integer
+        example: 1
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Cheese Pizza
+            category:
+              type: string
+              example: Fast Food
+            price:
+              type: number
+              example: 220
+            description:
+              type: string
+              example: Delicious cheese pizza
+    responses:
+      200:
+        description: Food updated successfully
+      404:
+        description: Food not found
+    """
+
+    try:
+
+        data = request.get_json()
+
+        cursor.execute(
+            "SELECT * FROM foods WHERE id=%s",
+            (food_id,)
+        )
+
+        food = cursor.fetchone()
+
+        if not food:
+
+            return jsonify({
+                "error": "Food not found"
+            }), 404
+
+        name = data.get(
+            "name",
+            food["name"]
+        )
+
+        category = data.get(
+            "category",
+            food["category"]
+        )
+
+        price = data.get(
+            "price",
+            food["price"]
+        )
+
+        description = data.get(
+            "description",
+            food["description"]
+        )
+
+        cursor.execute(
+            """
+            UPDATE foods
+            SET name=%s,
+                category=%s,
+                price=%s,
+                description=%s
+            WHERE id=%s
+            """,
+            (
+                name,
+                category,
+                price,
+                description,
+                food_id
+            )
+        )
+
+        db.commit()
+
+        return jsonify({
+            "message": "Food updated successfully",
+            "id": food_id
+        }), 200
+
+    except Exception as e:
+
+        db.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ============================================================
+# DELETE FOOD - DELETE
+# ============================================================
+
+@app.route("/api/foods/<int:food_id>", methods=["DELETE"])
+def delete_food(food_id):
+    """
+    Delete a food
+    ---
+    tags:
+      - Foods CRUD
+    parameters:
+      - name: food_id
+        in: path
+        required: true
+        type: integer
+        example: 7
+    responses:
+      200:
+        description: Food deleted successfully
+      404:
+        description: Food not found
+      409:
+        description: Food cannot be deleted because reviews exist
+    """
+
+    try:
+
+        cursor.execute(
+            "SELECT * FROM foods WHERE id=%s",
+            (food_id,)
+        )
+
+        food = cursor.fetchone()
+
+        if not food:
+
+            return jsonify({
+                "error": "Food not found"
+            }), 404
+
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM reviews
+            WHERE food_id=%s
+            """,
+            (food_id,)
+        )
+
+        review_count = cursor.fetchone()["count"]
+
+        if review_count > 0:
+
+            return jsonify({
+                "error": "Cannot delete food because reviews exist for this food"
+            }), 409
+
+        cursor.execute(
+            "DELETE FROM foods WHERE id=%s",
+            (food_id,)
+        )
+
+        db.commit()
+
+        return jsonify({
+            "message": "Food deleted successfully",
+            "id": food_id
+        }), 200
+
+    except Exception as e:
+
+        db.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ============================================================
+# RUN APPLICATION
 # ============================================================
 
 if __name__ == "__main__":
